@@ -3,8 +3,11 @@ services:
     build: .
     image: aniloader:latest
     volumes:
-      - ./downloads:/downloads
+      - ${DOWNLOAD_DIR:-./downloads}:/downloads
     stdin_open: true
     tty: true
     # Override CMD to provide your own arguments
-    # Usage: docker-compose run aniloader <url> [options]
+    # Usage: docker compose run aniloader <url> [options]
+    #
+    # Custom download directory:
+    # DOWNLOAD_DIR=/path/to/dir docker compose run aniloader <url>

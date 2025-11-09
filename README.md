@@ -79,7 +79,26 @@ docker compose run aniloader https://anitube.in.ua/... --voice 3
 docker compose run aniloader https://anitube.in.ua/... --verbose
 ```
 
-**Note:** Downloaded files will automatically appear in the `./downloads` directory on your host machine.
+**Custom download directory:**
+
+1. Using environment variable inline:
+```bash
+DOWNLOAD_DIR=/path/to/your/anime docker compose run aniloader <url>
+```
+
+2. Using `.env` file (recommended for permanent setup):
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env and set your directory
+# DOWNLOAD_DIR=/Users/username/Movies/Anime
+
+# Run normally
+docker compose run aniloader <url>
+```
+
+**Note:** Downloaded files will appear in the configured directory (default: `./downloads`).
 
 ## Usage
 
