@@ -123,18 +123,27 @@ uv run python main.py <URL> --verbose
 5. Prompts user to select player (or uses first by default)
 6. Extracts m3u8 video URLs from player iframes
 7. Downloads episodes using yt-dlp with optimizations
-8. Names files in format: `EnglishName (Year) S01E01.mp4`
+8. Automatically detects season number from title
+9. Creates Jellyfin-compatible directory structure
 
 ## File naming
 
-Episodes are saved in format compatible with media servers:
+Episodes are saved in Jellyfin-recommended format with season folders:
 
 ```
-EnglishName (Year)/
-   EnglishName (Year) S01E01.mp4
-   EnglishName (Year) S01E02.mp4
-   ...
+Series Name/
+├── Season 01/
+│   ├── Series Name S01E01.mp4
+│   └── Series Name S01E02.mp4
+└── Season 03/
+    ├── Series Name S03E01.mp4
+    └── Series Name S03E02.mp4
 ```
+
+**Season detection examples:**
+- `Chainsaw Man` → Season 01 (default)
+- `One Punch Man 3` → Season 03 (extracted from title)
+- `Attack on Titan Season 4` → Season 04
 
 ## Troubleshooting
 

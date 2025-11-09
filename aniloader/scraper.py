@@ -104,6 +104,22 @@ class AnitubeScraper:
                              flags=re.IGNORECASE)
             title_en = title_en.strip()
 
+        # Extract season number from English title
+        # Patterns: "Name 2", "Name Season 3", "Name S2"
+        season = 1  # Default to season 1
+        season_patterns = [
+            r'\s+(?:Season\s+)?(\d+)\s*$',  # "One Punch Man 3" or "Name Season 2"
+            r'\s+S(\d+)\s*$',                # "Name S2"
+        ]
+
+        for pattern in season_patterns:
+            season_match = re.search(pattern, title_en, re.IGNORECASE)
+            if season_match:
+                season = int(season_match.group(1))
+                # Remove season number from title to get base name
+                title_en = re.sub(pattern, '', title_en, flags=re.IGNORECASE).strip()
+                break
+
         # Extract year from title or page
         year_match = re.search(r'\((\d{4})\)', response.text)
         year = int(year_match.group(1)) if year_match else None
@@ -115,6 +131,7 @@ class AnitubeScraper:
             news_id=news_id,
             title_en=title_en,
             year=year,
+            season=season,
         )
 
         # Store user_hash for later use

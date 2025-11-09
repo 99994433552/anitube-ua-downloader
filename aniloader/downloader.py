@@ -64,12 +64,14 @@ class VideoDownloader:
 
     def create_output_directory(self, anime: Anime, base_dir: str) -> Path:
         """Create and return output directory for anime."""
-        if anime.year:
-            dir_name = f"{anime.title_en} ({anime.year})"
-        else:
-            dir_name = anime.title_en
+        # Series name (without year for Jellyfin compatibility)
+        series_name = anime.title_en
 
-        output_path = Path(base_dir) / dir_name
+        # Season folder
+        season_folder = f"Season {anime.season:02d}"
+
+        # Full path: Series Name/Season XX/
+        output_path = Path(base_dir) / series_name / season_folder
         output_path.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Created output directory: {output_path}")
@@ -82,17 +84,11 @@ class VideoDownloader:
         episode: Episode
     ) -> str:
         """Generate filename for episode."""
-        base_name = (
-            f"{anime.title_en} ({anime.year})"
-            if anime.year
-            else anime.title_en
-        )
+        # Use series name without year for Jellyfin
+        base_name = anime.title_en
 
-        # Format episode number with leading zero
-        episode_str = f"E{episode.number:02d}"
-
-        # Assume season 1 for now
-        filename = f"{base_name} S01{episode_str}.mp4"
+        # Format: Series Name S01E02.mp4
+        filename = f"{base_name} S{anime.season:02d}E{episode.number:02d}.mp4"
 
         return filename
 
