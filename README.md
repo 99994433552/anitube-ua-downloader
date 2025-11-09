@@ -32,6 +32,55 @@ brew install aria2  # macOS
 apt install aria2  # Linux
 ```
 
+## Docker Usage
+
+If you prefer not to install dependencies locally, you can use Docker:
+
+### Build the image
+
+```bash
+docker build -t aniloader .
+```
+
+### Using docker run
+
+**Important:** Use `-it` flags for interactive voice selection and `-v` to mount downloads directory.
+
+```bash
+# Basic usage (interactive voice/player selection)
+docker run -it -v $(pwd)/downloads:/downloads aniloader https://anitube.in.ua/4110-lyudina-benzopila.html
+
+# With voice selection (non-interactive)
+docker run -v $(pwd)/downloads:/downloads aniloader https://anitube.in.ua/... --voice 3
+
+# With verbose output
+docker run -it -v $(pwd)/downloads:/downloads aniloader https://anitube.in.ua/... --verbose
+
+# Custom download directory
+docker run -it -v /path/to/your/downloads:/downloads aniloader https://anitube.in.ua/...
+```
+
+**Flags explanation:**
+- `-it` - Interactive terminal (required for voice/player selection prompts)
+- `-v $(pwd)/downloads:/downloads` - Mount local `./downloads` directory to save files to host machine
+
+### Using docker compose (recommended)
+
+Docker Compose automatically handles volume mounting and interactive mode.
+
+```bash
+# Basic usage (interactive voice/player selection)
+docker compose run aniloader https://anitube.in.ua/4110-lyudina-benzopila.html
+
+# With voice selection (skip interactive prompt)
+docker compose run aniloader https://anitube.in.ua/... --voice 3
+
+# With verbose output
+docker compose run aniloader https://anitube.in.ua/... --verbose
+```
+
+**Note:** Downloaded files will automatically appear in the `./downloads` directory on your host machine.
+
 ## Usage
 
 ### Basic usage (interactive voice selection)

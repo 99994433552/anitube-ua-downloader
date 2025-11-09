@@ -119,6 +119,8 @@ class AnitubeScraper:
         players = []
         voice_items = soup.select('.playlists-lists .playlists-items li')
 
+        voice_depth = len(voice_id.split('_'))
+
         for item in voice_items:
             player_data_id = item.get('data-id', '')
             player_name = item.get_text(strip=True)
@@ -126,10 +128,10 @@ class AnitubeScraper:
             if not player_data_id or not player_name:
                 continue
 
-            # Players have 4 parts: X_X_X_X
-            # Must start with voice_id (3 parts)
+            # Players are one level deeper than voice
+            # and must start with voice_id
             parts = player_data_id.split('_')
-            if len(parts) == 4 and player_data_id.startswith(voice_id):
+            if len(parts) == voice_depth + 1 and player_data_id.startswith(voice_id):
                 players.append(Player(
                     id=player_data_id,
                     name=player_name
@@ -181,10 +183,13 @@ class AnitubeScraper:
         soup = BeautifulSoup(html_content, 'lxml')
 
         # Extract available voices
-        # Only get actual voice options (3rd level: X_X_X format)
-        # Skip categories (X_X) and players (X_X_X_X)
+        # Flexible logic: voices are items that don't contain "ПЛЕЄР" in name
+        # and are not at the deepest level (players)
         voices = []
         voice_items = soup.select('.playlists-lists .playlists-items li')
+
+        # Collect all items first to analyze structure
+        all_items = []
         for item in voice_items:
             voice_data_id = item.get('data-id', '')
             voice_name = item.get_text(strip=True)
@@ -192,13 +197,34 @@ class AnitubeScraper:
             if not voice_data_id or not voice_name:
                 continue
 
-            # Count underscores to determine level
-            # X_X = category (2 parts) - skip
-            # X_X_X = voice (3 parts) - include
-            # X_X_X_X = player (4 parts) - skip
             parts = voice_data_id.split('_')
-            if len(parts) == 3:  # Only voices (3rd level)
-                voices.append(Voice(id=voice_data_id, name=voice_name))
+            all_items.append({
+                'id': voice_data_id,
+                'name': voice_name,
+                'parts_count': len(parts)
+            })
+
+        # Find max depth to determine what are voices vs players
+        max_depth = max((item['parts_count'] for item in all_items), default=0)
+
+        # Category keywords to skip (these are usually parent containers)
+        category_keywords = ['ОЗВУЧЕННЯ', 'СУБТИТРИ', 'DUBBING', 'SUBTITLES',
+                           'УКРАЇНСЬКОЮ', 'RUSSIAN', 'ENGLISH']
+
+        # Voices are items that:
+        # 1. Are NOT at max depth (those are players)
+        # 2. Don't have "ПЛЕЄР" in name (those are players)
+        # 3. Are not category containers
+        for item in all_items:
+            is_player = 'ПЛЕЄР' in item['name'].upper() or 'PLAYER' in item['name'].upper()
+            is_max_depth = item['parts_count'] == max_depth
+            is_category = any(keyword in item['name'].upper() for keyword in category_keywords)
+
+            # Skip players, max depth items, and categories
+            if is_player or (is_max_depth and max_depth > 2) or is_category:
+                continue
+
+            voices.append(Voice(id=item['id'], name=item['name']))
 
         anime.voices = voices
 
@@ -214,12 +240,15 @@ class AnitubeScraper:
 
         # If player_id not specified, find first available player
         if not player_id and voice_id:
+            voice_depth = len(voice_id.split('_'))
+            player_depth = voice_depth + 1
+
             for item in episode_items:
                 data_id = item.get('data-id', '')
                 if data_id.startswith(voice_id):
                     parts = data_id.split('_')
-                    if len(parts) >= 4:
-                        player_id = '_'.join(parts[:4])
+                    if len(parts) >= player_depth:
+                        player_id = '_'.join(parts[:player_depth])
                         break
 
         # Extract episodes only for the selected player

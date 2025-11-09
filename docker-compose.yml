@@ -1,0 +1,10 @@
+services:
+  aniloader:
+    build: .
+    image: aniloader:latest
+    volumes:
+      - ./downloads:/downloads
+    stdin_open: true
+    tty: true
+    # Override CMD to provide your own arguments
+    # Usage: docker-compose run aniloader <url> [options]
