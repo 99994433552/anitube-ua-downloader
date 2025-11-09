@@ -2,6 +2,7 @@
 
 import re
 import json
+import urllib.parse
 from typing import Optional
 
 import requests
@@ -68,22 +69,40 @@ class AnitubeScraper:
         soup = BeautifulSoup(response.text, 'lxml')
         news_id = self.extract_news_id(url)
 
-        # Extract title (English)
-        # Look for title in meta tags or h1
-        title_tag = (
-            soup.find('meta', property='og:title') or
-            soup.find('h1', class_='title') or
-            soup.find('h1')
-        )
-        title_en = (
-            title_tag.get('content', '') if title_tag.name == 'meta'
-            else title_tag.get_text(strip=True)
-        ) if title_tag else "Unknown"
+        # Extract English title from Twitter share link
+        # Format: "Українська назва / English Name https://..."
+        title_en = "Unknown"
+        twitter_link = soup.find('a', href=re.compile(r'twitter\.com/intent/tweet'))
+        if twitter_link:
+            href = twitter_link.get('href', '')
+            # Extract text parameter from URL
+            match = re.search(r'text=([^&]+)', href)
+            if match:
+                decoded_text = urllib.parse.unquote(match.group(1))
+                # Split by " / " and take English part
+                if ' / ' in decoded_text:
+                    parts = decoded_text.split(' / ')
+                    if len(parts) >= 2:
+                        # Remove URL at the end (everything after http)
+                        english_part = re.sub(r'\s*https?://.*$', '', parts[1])
+                        title_en = english_part.strip()
 
-        # Clean title (remove extra info in parentheses if needed)
-        title_en = re.sub(r'\s*\([^)]*AC1B8B@[^)]*\)', '', title_en,
-                         flags=re.IGNORECASE)
-        title_en = title_en.strip()
+        # Fallback to og:title if English name not found
+        if title_en == "Unknown":
+            title_tag = (
+                soup.find('meta', property='og:title') or
+                soup.find('h1', class_='title') or
+                soup.find('h1')
+            )
+            title_en = (
+                title_tag.get('content', '') if title_tag.name == 'meta'
+                else title_tag.get_text(strip=True)
+            ) if title_tag else "Unknown"
+
+            # Clean title (remove Ukrainian additions)
+            title_en = re.sub(r'\s*(українською|онлайн|аніме).*$', '', title_en,
+                             flags=re.IGNORECASE)
+            title_en = title_en.strip()
 
         # Extract year from title or page
         year_match = re.search(r'\((\d{4})\)', response.text)

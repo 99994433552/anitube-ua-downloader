@@ -12,6 +12,8 @@ wheels/
 # Downloaded episodes
 *.mp4
 *.mkv
+*.aria2
+downloads/
 
 # IDE
 .vscode/
