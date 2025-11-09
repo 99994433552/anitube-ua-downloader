@@ -2,6 +2,7 @@
 
 import re
 import json
+import base64
 import logging
 from typing import Optional
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class M3U8Extractor:
-    """Extract m3u8 URLs from Playerjs embedded players."""
+    """Extract m3u8 URLs from Playerjs and TortugaCore embedded players."""
 
     def __init__(self, session: Optional[requests.Session] = None):
         self.session = session or requests.Session()
@@ -22,6 +23,26 @@ class M3U8Extractor:
                          "AppleWebKit/537.36 (KHTML, like Gecko) "
                          "Chrome/120.0.0.0 Safari/537.36",
         })
+
+    def _extract_tortuga_url(self, html: str) -> Optional[str]:
+        """Extract m3u8 URL from TortugaCore player."""
+        # Pattern: new TortugaCore({ ... file: "base64encoded" ... })
+        pattern = r'new\s+TortugaCore\s*\(\s*\{[^}]*file\s*:\s*["\']([^"\']+)["\']'
+        match = re.search(pattern, html, re.DOTALL)
+
+        if not match:
+            return None
+
+        encoded_file = match.group(1)
+
+        try:
+            # Decode: base64 decode -> reverse string
+            decoded = base64.b64decode(encoded_file).decode('utf-8')
+            m3u8_url = decoded[::-1]  # Reverse the string
+            return m3u8_url
+        except Exception as e:
+            logger.error(f"Failed to decode TortugaCore file: {e}")
+            return None
 
     def extract_m3u8_url(self, episode: Episode) -> Optional[str]:
         """Extract m3u8 URL from episode's data_file iframe."""
@@ -37,7 +58,16 @@ class M3U8Extractor:
             response.raise_for_status()
             html = response.text
 
-            # Look for Playerjs initialization
+            # Try TortugaCore first (newer player)
+            m3u8_url = self._extract_tortuga_url(html)
+            if m3u8_url:
+                logger.info(
+                    f"Extracted m3u8 URL from TortugaCore for episode "
+                    f"{episode.number}: {m3u8_url}"
+                )
+                return m3u8_url
+
+            # Fallback to Playerjs
             # Pattern: Playerjs({...})
             pattern = r'Playerjs\s*\(\s*(\{[^}]+\})\s*\)'
             match = re.search(pattern, html, re.DOTALL)
@@ -49,8 +79,8 @@ class M3U8Extractor:
 
             if not match:
                 logger.error(
-                    f"Could not find Playerjs config for episode "
-                    f"{episode.number}"
+                    f"Could not find Playerjs or TortugaCore config for "
+                    f"episode {episode.number}"
                 )
                 return None
 
