@@ -160,11 +160,20 @@ Examples:
         print(f"Found: {anime.title_en}" +
               (f" ({anime.year})" if anime.year else ""))
 
-        # Step 2: Fetch playlist to get available voices
-        print("\nFetching available voice options...")
+        # Step 2: Fetch playlist to get available voices/players
+        print("\nFetching content...")
         anime = scraper.fetch_playlist(anime)
 
-        # Step 3: Select voice
+        # Now we can detect content type (set in fetch_playlist)
+        content_type = "movie" if anime.is_movie else "series"
+        print(f"Detected content type: {content_type}")
+
+        if anime.is_movie:
+            print(f"Found {len(anime.voices)} player options")
+        else:
+            print(f"Found {len(anime.voices)} voice options")
+
+        # Step 3: Select voice/player
         selected_voice_id = args.voice
         if selected_voice_id:
             # User provided voice index (1-based), convert to data-id
@@ -174,7 +183,8 @@ Examples:
                     selected_voice_id = anime.voices[voice_idx].id
                 else:
                     print(
-                        f"Invalid voice index: {args.voice}. "
+                        f"Invalid {'player' if anime.is_movie else 'voice'} "
+                        f"index: {args.voice}. "
                         f"Must be 1-{len(anime.voices)}"
                     )
                     sys.exit(1)
@@ -184,25 +194,41 @@ Examples:
         else:
             selected_voice_id = select_voice_interactive(anime)
 
-        # Step 4: Get available players for selected voice
+        # Step 4-6: Get players for both series and complex movies
         print("\nFetching available players...")
         players = scraper.get_available_players(anime, selected_voice_id)
 
         if not players:
-            print("No players found for selected voice!")
-            sys.exit(1)
+            # No players found - this is a simple movie where voice IS the player
+            if anime.is_movie:
+                selected_player_id = None
+                print(f"No separate players, using selected voice as player")
+                anime = scraper.fetch_playlist(
+                    anime,
+                    voice_id=selected_voice_id,
+                    player_id=None
+                )
+                print(f"Found movie file")
+            else:
+                print("No players found for selected voice!")
+                sys.exit(1)
+        else:
+            # Players found - select one (for both series and complex movies)
+            selected_player_id = select_player_interactive(players)
 
-        # Step 5: Select player
-        selected_player_id = select_player_interactive(players)
+            # Fetch episodes for selected voice and player
+            content_label = "movie" if anime.is_movie else f"{anime.total_episodes if anime.total_episodes else '?'} episodes"
+            print(f"\nFetching {content_label}...")
+            anime = scraper.fetch_playlist(
+                anime,
+                voice_id=selected_voice_id,
+                player_id=selected_player_id
+            )
 
-        # Step 6: Fetch episodes for selected voice and player
-        print(f"\nFetching episodes...")
-        anime = scraper.fetch_playlist(
-            anime,
-            voice_id=selected_voice_id,
-            player_id=selected_player_id
-        )
-        print(f"Found {anime.total_episodes} episodes")
+            if anime.is_movie:
+                print(f"Found movie file")
+            else:
+                print(f"Found {anime.total_episodes} episodes")
 
         if not anime.episodes:
             print("No episodes found!")

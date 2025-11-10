@@ -30,12 +30,16 @@ class Episode(BaseModel):
 
 
 class Anime(BaseModel):
-    """Represents anime series metadata."""
+    """Represents anime series or movie metadata."""
 
     news_id: str = Field(..., description="Anime ID from URL")
     title_en: str = Field(..., description="English title")
     year: int | None = Field(default=None, description="Release year")
-    season: int = Field(default=1, description="Season number")
+    season: int = Field(default=1, description="Season number (series only)")
+    is_movie: bool = Field(
+        default=False,
+        description="Whether this is a movie or series"
+    )
     total_episodes: int | None = Field(
         default=None,
         description="Total number of episodes"

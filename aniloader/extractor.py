@@ -44,6 +44,36 @@ class M3U8Extractor:
             logger.error(f"Failed to decode TortugaCore file: {e}")
             return None
 
+    def _extract_best_quality_url(self, file_value: str) -> str:
+        """Extract best quality URL from multi-quality file string.
+
+        Format: [360p]url1,[720p]url2,[1080p]url3
+        Returns the highest quality URL available.
+        """
+        if not file_value:
+            return file_value
+
+        # Check if this is multi-quality format
+        if '[' not in file_value or ']' not in file_value:
+            return file_value
+
+        # Parse quality options: [360p]url,[720p]url,[1080p]url
+        quality_pattern = r'\[(\d+)p\]([^,\[\]]+)'
+        matches = re.findall(quality_pattern, file_value)
+
+        if not matches:
+            return file_value
+
+        # Sort by quality (descending) and pick highest
+        sorted_qualities = sorted(matches, key=lambda x: int(x[0]), reverse=True)
+        best_quality, best_url = sorted_qualities[0]
+
+        # Remove trailing slash if present
+        best_url = best_url.rstrip('/')
+
+        logger.info(f"Selected {best_quality}p quality from available options")
+        return best_url
+
     def extract_m3u8_url(self, episode: Episode) -> Optional[str]:
         """Extract m3u8 URL from episode's data_file iframe."""
         if not episode.data_file:
@@ -53,10 +83,21 @@ class M3U8Extractor:
             return None
 
         try:
-            # Fetch iframe page
-            response = self.session.get(episode.data_file)
+            # Fetch iframe page with proper Referer to avoid empty responses
+            headers = {
+                'Referer': 'https://anitube.in.ua/',
+            }
+            response = self.session.get(episode.data_file, headers=headers)
             response.raise_for_status()
             html = response.text
+
+            # Check if response is empty (some players block without referer)
+            if not html or len(html) < 100:
+                logger.error(
+                    f"Empty or too short response for episode {episode.number} "
+                    f"(got {len(html)} bytes)"
+                )
+                return None
 
             # Try TortugaCore first (newer player)
             m3u8_url = self._extract_tortuga_url(html)
@@ -103,7 +144,9 @@ class M3U8Extractor:
                     json_str
                 )
                 if file_match:
-                    return file_match.group(1)
+                    file_value = file_match.group(1)
+                    # Extract best quality if multi-quality format
+                    return self._extract_best_quality_url(file_value)
 
                 logger.error(
                     f"Could not parse Playerjs JSON for episode "
@@ -111,7 +154,7 @@ class M3U8Extractor:
                 )
                 return None
 
-            # Extract file URL (this is the m3u8 URL)
+            # Extract file URL (this is the m3u8 URL or multi-quality string)
             m3u8_url = config.get('file')
 
             if not m3u8_url:
@@ -120,6 +163,9 @@ class M3U8Extractor:
                     f"{episode.number}"
                 )
                 return None
+
+            # Extract best quality if multi-quality format
+            m3u8_url = self._extract_best_quality_url(m3u8_url)
 
             # Sometimes the URL needs the base domain prepended
             if m3u8_url.startswith('//'):
