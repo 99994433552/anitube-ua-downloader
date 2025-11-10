@@ -2,6 +2,7 @@
 
 import re
 import json
+import logging
 import urllib.parse
 from typing import Optional
 
@@ -9,6 +10,8 @@ import requests
 from bs4 import BeautifulSoup
 
 from .models import Anime, Voice, Player, Episode
+
+logger = logging.getLogger(__name__)
 
 
 class AnitubeScraper:
@@ -149,6 +152,44 @@ class AnitubeScraper:
 
         return anime
 
+    def _parse_embedded_iframe(self, anime: Anime) -> Anime:
+        """Parse iframe directly from page (fallback for old format)."""
+        # Fetch the original page HTML
+        response = self.session.get(self._anime_url)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'lxml')
+
+        # Find iframe with video player
+        iframe = soup.find('iframe', src=re.compile(r'(ashdi|tortuga|monster)'))
+
+        if not iframe:
+            logger.error("No embedded iframe found on page")
+            anime.is_movie = True  # Assume movie for old format
+            anime.voices = []
+            anime.episodes = []
+            return anime
+
+        iframe_url = iframe.get('src', '')
+        if not iframe_url.startswith('http'):
+            iframe_url = 'https:' + iframe_url
+
+        # For old format: single iframe = single voice/player = movie
+        anime.is_movie = True
+        anime.voices = [Voice(id='0', name='Єдина озвучка')]
+
+        # Create single episode (movie)
+        anime.episodes = [Episode(
+            number=1,
+            data_id='0',
+            data_file=iframe_url,
+        )]
+        anime.total_episodes = 1
+
+        logger.info(f"Parsed embedded iframe: {iframe_url}")
+
+        return anime
+
     def get_available_players(
         self,
         anime: Anime,
@@ -219,6 +260,15 @@ class AnitubeScraper:
         try:
             data = response.json()
             html_content = data.get('response', '')
+
+            # Check if AJAX returned error (old format pages)
+            if not data.get('success', True) or not html_content:
+                # Fallback: parse iframe directly from main page
+                logger.info(
+                    "AJAX playlist not available, using embedded iframe fallback"
+                )
+                return self._parse_embedded_iframe(anime)
+
         except json.JSONDecodeError:
             # Sometimes response is plain HTML
             html_content = response.text
