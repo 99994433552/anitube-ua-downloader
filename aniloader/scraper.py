@@ -23,25 +23,27 @@ class AnitubeScraper:
     def __init__(self):
         # Create session for maintaining cookies
         self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                         "AppleWebKit/537.36 (KHTML, like Gecko) "
-                         "Chrome/142.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;"
-                     "q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-            "sec-ch-ua": '"Chromium";v="142", "Not_A Brand";v="99"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"macOS"',
-            "sec-fetch-dest": "document",
-            "sec-fetch-mode": "navigate",
-            "sec-fetch-site": "none",
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/142.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;"
+                "q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+                "sec-ch-ua": '"Chromium";v="142", "Not_A Brand";v="99"',
+                "sec-ch-ua-mobile": "?0",
+                "sec-ch-ua-platform": '"macOS"',
+                "sec-fetch-dest": "document",
+                "sec-fetch-mode": "navigate",
+                "sec-fetch-site": "none",
+            }
+        )
         self._anime_url = None  # Store for Referer header
 
     def extract_news_id(self, url: str) -> str:
         """Extract news_id from anime URL."""
-        match = re.search(r'/(\d+)-.*\.html', url)
+        match = re.search(r"/(\d+)-.*\.html", url)
         if not match:
             raise ValueError(f"Could not extract news_id from URL: {url}")
         return match.group(1)
@@ -69,50 +71,56 @@ class AnitubeScraper:
         response = self.session.get(url)
         response.raise_for_status()
 
-        soup = BeautifulSoup(response.text, 'lxml')
+        soup = BeautifulSoup(response.text, "lxml")
         news_id = self.extract_news_id(url)
 
         # Extract English title from Twitter share link
         # Format: "Українська назва / English Name https://..."
         title_en = "Unknown"
-        twitter_link = soup.find('a', href=re.compile(r'twitter\.com/intent/tweet'))
+        twitter_link = soup.find("a", href=re.compile(r"twitter\.com/intent/tweet"))
         if twitter_link:
-            href = twitter_link.get('href', '')
+            href = twitter_link.get("href", "")
             # Extract text parameter from URL
-            match = re.search(r'text=([^&]+)', href)
+            match = re.search(r"text=([^&]+)", href)
             if match:
                 decoded_text = urllib.parse.unquote(match.group(1))
                 # Split by " / " and take English part
-                if ' / ' in decoded_text:
-                    parts = decoded_text.split(' / ')
+                if " / " in decoded_text:
+                    parts = decoded_text.split(" / ")
                     if len(parts) >= 2:
                         # Remove URL at the end (everything after http)
-                        english_part = re.sub(r'\s*https?://.*$', '', parts[1])
+                        english_part = re.sub(r"\s*https?://.*$", "", parts[1])
                         title_en = english_part.strip()
 
         # Fallback to og:title if English name not found
         if title_en == "Unknown":
             title_tag = (
-                soup.find('meta', property='og:title') or
-                soup.find('h1', class_='title') or
-                soup.find('h1')
+                soup.find("meta", property="og:title")
+                or soup.find("h1", class_="title")
+                or soup.find("h1")
             )
             title_en = (
-                title_tag.get('content', '') if title_tag.name == 'meta'
-                else title_tag.get_text(strip=True)
-            ) if title_tag else "Unknown"
+                (
+                    title_tag.get("content", "")
+                    if title_tag.name == "meta"
+                    else title_tag.get_text(strip=True)
+                )
+                if title_tag
+                else "Unknown"
+            )
 
             # Clean title (remove Ukrainian additions)
-            title_en = re.sub(r'\s*(українською|онлайн|аніме).*$', '', title_en,
-                             flags=re.IGNORECASE)
+            title_en = re.sub(
+                r"\s*(українською|онлайн|аніме).*$", "", title_en, flags=re.IGNORECASE
+            )
             title_en = title_en.strip()
 
         # Extract season number from English title
         # Patterns: "Name 2", "Name Season 3", "Name S2"
         season = 1  # Default to season 1
         season_patterns = [
-            r'\s+(?:Season\s+)?(\d+)\s*$',  # "One Punch Man 3" or "Name Season 2"
-            r'\s+S(\d+)\s*$',                # "Name S2"
+            r"\s+(?:Season\s+)?(\d+)\s*$",  # "One Punch Man 3" or "Name Season 2"
+            r"\s+S(\d+)\s*$",  # "Name S2"
         ]
 
         for pattern in season_patterns:
@@ -120,21 +128,21 @@ class AnitubeScraper:
             if season_match:
                 season = int(season_match.group(1))
                 # Remove season number from title to get base name
-                title_en = re.sub(pattern, '', title_en, flags=re.IGNORECASE).strip()
+                title_en = re.sub(pattern, "", title_en, flags=re.IGNORECASE).strip()
                 break
 
         # Extract year from news_keywords meta tag or page content
         year = None
-        keywords_meta = soup.find('meta', attrs={'name': 'news_keywords'})
+        keywords_meta = soup.find("meta", attrs={"name": "news_keywords"})
         if keywords_meta:
-            keywords_content = keywords_meta.get('content', '')
-            year_match = re.search(r'\b(19|20)\d{2}\b', keywords_content)
+            keywords_content = keywords_meta.get("content", "")
+            year_match = re.search(r"\b(19|20)\d{2}\b", keywords_content)
             if year_match:
                 year = int(year_match.group(0))
 
         # Fallback: search for year in parentheses
         if not year:
-            year_match = re.search(r'\((\d{4})\)', response.text)
+            year_match = re.search(r"\((\d{4})\)", response.text)
             year = int(year_match.group(1)) if year_match else None
 
         # Get user hash for AJAX requests
@@ -158,10 +166,10 @@ class AnitubeScraper:
         response = self.session.get(self._anime_url)
         response.raise_for_status()
 
-        soup = BeautifulSoup(response.text, 'lxml')
+        soup = BeautifulSoup(response.text, "lxml")
 
         # Find iframe with video player
-        iframe = soup.find('iframe', src=re.compile(r'(ashdi|tortuga|monster)'))
+        iframe = soup.find("iframe", src=re.compile(r"(ashdi|tortuga|monster)"))
 
         if not iframe:
             logger.error("No embedded iframe found on page")
@@ -170,46 +178,44 @@ class AnitubeScraper:
             anime.episodes = []
             return anime
 
-        iframe_url = iframe.get('src', '')
-        if not iframe_url.startswith('http'):
-            iframe_url = 'https:' + iframe_url
+        iframe_url = iframe.get("src", "")
+        if not iframe_url.startswith("http"):
+            iframe_url = "https:" + iframe_url
 
         # For old format: single iframe = single voice/player = movie
         anime.is_movie = True
-        anime.voices = [Voice(id='0', name='Єдина озвучка')]
+        anime.voices = [Voice(id="0", name="Єдина озвучка")]
 
         # Create single episode (movie)
-        anime.episodes = [Episode(
-            number=1,
-            data_id='0',
-            data_file=iframe_url,
-        )]
+        anime.episodes = [
+            Episode(
+                number=1,
+                data_id="0",
+                data_file=iframe_url,
+            )
+        ]
         anime.total_episodes = 1
 
         logger.info(f"Parsed embedded iframe: {iframe_url}")
 
         return anime
 
-    def get_available_players(
-        self,
-        anime: Anime,
-        voice_id: str
-    ) -> list[Player]:
+    def get_available_players(self, anime: Anime, voice_id: str) -> list[Player]:
         """Get available players for a specific voice."""
         # Need to fetch playlist first if not already done
-        if not hasattr(self, '_playlist_html'):
+        if not hasattr(self, "_playlist_html"):
             return []
 
-        soup = BeautifulSoup(self._playlist_html, 'lxml')
+        soup = BeautifulSoup(self._playlist_html, "lxml")
 
         # Find all players for this voice
         players = []
-        voice_items = soup.select('.playlists-lists .playlists-items li')
+        voice_items = soup.select(".playlists-lists .playlists-items li")
 
-        voice_depth = len(voice_id.split('_'))
+        voice_depth = len(voice_id.split("_"))
 
         for item in voice_items:
-            player_data_id = item.get('data-id', '')
+            player_data_id = item.get("data-id", "")
             player_name = item.get_text(strip=True)
 
             if not player_data_id or not player_name:
@@ -217,12 +223,9 @@ class AnitubeScraper:
 
             # Players are one level deeper than voice
             # and must start with voice_id
-            parts = player_data_id.split('_')
+            parts = player_data_id.split("_")
             if len(parts) == voice_depth + 1 and player_data_id.startswith(voice_id):
-                players.append(Player(
-                    id=player_data_id,
-                    name=player_name
-                ))
+                players.append(Player(id=player_data_id, name=player_name))
 
         return players
 
@@ -230,39 +233,37 @@ class AnitubeScraper:
         self,
         anime: Anime,
         voice_id: Optional[str] = None,
-        player_id: Optional[str] = None
+        player_id: Optional[str] = None,
     ) -> Anime:
         """Fetch playlist with episodes via AJAX."""
         params = {
-            'news_id': anime.news_id,
-            'xfield': 'playlist',
-            'user_hash': self._user_hash,
+            "news_id": anime.news_id,
+            "xfield": "playlist",
+            "user_hash": self._user_hash,
         }
 
         # AJAX-specific headers (override defaults for this request)
         ajax_headers = {
-            'Accept': 'application/json, text/javascript, */*; q=0.01',
-            'X-Requested-With': 'XMLHttpRequest',
-            'Referer': self._anime_url,
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": self._anime_url,
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
         }
 
         response = self.session.get(
-            self.AJAX_PLAYLIST_URL,
-            params=params,
-            headers=ajax_headers
+            self.AJAX_PLAYLIST_URL, params=params, headers=ajax_headers
         )
         response.raise_for_status()
 
         # Parse JSON response
         try:
             data = response.json()
-            html_content = data.get('response', '')
+            html_content = data.get("response", "")
 
             # Check if AJAX returned error (old format pages)
-            if not data.get('success', True) or not html_content:
+            if not data.get("success", True) or not html_content:
                 # Fallback: parse iframe directly from main page
                 logger.info(
                     "AJAX playlist not available, using embedded iframe fallback"
@@ -276,88 +277,137 @@ class AnitubeScraper:
         # Store HTML for later use (get_available_players)
         self._playlist_html = html_content
 
-        soup = BeautifulSoup(html_content, 'lxml')
+        soup = BeautifulSoup(html_content, "lxml")
 
         # Extract available voices
         # Flexible logic: voices are items that don't contain "ПЛЕЄР" in name
         # and are not at the deepest level (players)
         voices = []
-        voice_items = soup.select('.playlists-lists .playlists-items li')
+        voice_items = soup.select(".playlists-lists .playlists-items li")
 
         # Collect all items first to analyze structure
         all_items = []
         for item in voice_items:
-            voice_data_id = item.get('data-id', '')
+            voice_data_id = item.get("data-id", "")
             voice_name = item.get_text(strip=True)
 
             if not voice_data_id or not voice_name:
                 continue
 
-            parts = voice_data_id.split('_')
-            all_items.append({
-                'id': voice_data_id,
-                'name': voice_name,
-                'parts_count': len(parts)
-            })
+            parts = voice_data_id.split("_")
+            all_items.append(
+                {"id": voice_data_id, "name": voice_name, "parts_count": len(parts)}
+            )
 
         # Find max depth to determine what are voices vs players
-        max_depth = max((item['parts_count'] for item in all_items), default=0)
+        max_depth = max((item["parts_count"] for item in all_items), default=0)
 
         # Detect if this is a movie vs series
-        # Method 1: Check if all episodes are labeled as "ФІЛЬМ" or "FILM"
-        episode_items = soup.select('.playlists-videos .playlists-items li')
+        episode_items = soup.select(".playlists-videos .playlists-items li")
         episode_texts = [item.get_text(strip=True) for item in episode_items]
         unique_episode_texts = set(episode_texts)
 
+        # Method 1: Check if labeled as "ФІЛЬМ"/"FILM" (explicit movie marker)
         has_movie_label = any(
-            'ФІЛЬМ' in text.upper() or 'FILM' in text.upper()
+            "ФІЛЬМ" in text.upper() or "FILM" in text.upper()
             for text in unique_episode_texts
         )
 
-        # Method 2: Players at depth 2 with ПЛЕЄР keyword
-        all_have_player_keyword = all(
-            'ПЛЕЄР' in item['name'].upper() or 'PLAYER' in item['name'].upper()
-            for item in all_items
+        # Method 2: Check if labeled as "серія"/"episode" (explicit series marker)
+        has_series_label = any(
+            "СЕРІЯ" in text.upper()
+            or "EPISODE" in text.upper()
+            or "ЕПІЗОД" in text.upper()
+            for text in unique_episode_texts
         )
-        players_at_depth_2 = max_depth == 2 and all_have_player_keyword
 
-        # It's a movie if either condition is true
-        is_movie = has_movie_label or players_at_depth_2
+        # Method 3: Count unique episodes (by data-file, not data-id)
+        # Multiple unique video files = series
+        unique_files = set()
+        for item in episode_items:
+            data_file = item.get("data-file", "")
+            if data_file:
+                unique_files.add(data_file)
+
+        has_multiple_episodes = len(unique_files) > len(
+            all_items
+        )  # More episodes than players
+
+        # Decision logic:
+        # - If has "серія" labels → definitely series
+        # - If has "ФІЛЬМ" labels and only one episode → movie
+        # - If multiple unique episodes → series
+        # - Otherwise → movie (default for single episode)
+        is_movie = (
+            has_movie_label and not has_series_label and not has_multiple_episodes
+        )
 
         # Category keywords to skip (these are usually parent containers)
-        category_keywords = ['ОЗВУЧЕННЯ', 'СУБТИТРИ', 'DUBBING', 'SUBTITLES',
-                           'УКРАЇНСЬКОЮ', 'RUSSIAN', 'ENGLISH']
+        category_keywords = [
+            "ОЗВУЧЕННЯ",
+            "СУБТИТРИ",
+            "DUBBING",
+            "SUBTITLES",
+            "УКРАЇНСЬКОЮ",
+            "RUSSIAN",
+            "ENGLISH",
+        ]
 
         if is_movie:
-            # For movies, we need to find the voice level (not players)
-            # If structure is Voice -> Player, use voices only
-            # If structure is just Players, use players
-            if players_at_depth_2:
+            # For movies, check structure:
+            # - If all items have "ПЛЕЄР" in name → use all items as players (simple structure)
+            # - Otherwise → find voices (items without "ПЛЕЄР" at lower depth)
+            all_have_player_keyword = all(
+                "ПЛЕЄР" in item["name"].upper() or "PLAYER" in item["name"].upper()
+                for item in all_items
+            )
+
+            if all_have_player_keyword:
                 # Simple structure: players at top level (0_0, 0_1)
                 for item in all_items:
-                    voices.append(Voice(id=item['id'], name=item['name']))
+                    voices.append(Voice(id=item["id"], name=item["name"]))
             else:
                 # Complex structure: voices -> players (0_0 -> 0_0_0)
                 # Only include items that are NOT players (no ПЛЕЄР keyword)
                 for item in all_items:
-                    is_player = 'ПЛЕЄР' in item['name'].upper() or 'PLAYER' in item['name'].upper()
-                    if not is_player and item['parts_count'] < max_depth:
-                        voices.append(Voice(id=item['id'], name=item['name']))
+                    is_player = (
+                        "ПЛЕЄР" in item["name"].upper()
+                        or "PLAYER" in item["name"].upper()
+                    )
+                    if not is_player and item["parts_count"] < max_depth:
+                        voices.append(Voice(id=item["id"], name=item["name"]))
         else:
             # For series: Voices are items that:
             # 1. Are NOT at max depth (those are players)
             # 2. Don't have "ПЛЕЄР" in name (those are players)
             # 3. Are not category containers
-            for item in all_items:
-                is_player = 'ПЛЕЄР' in item['name'].upper() or 'PLAYER' in item['name'].upper()
-                is_max_depth = item['parts_count'] == max_depth
-                is_category = any(keyword in item['name'].upper() for keyword in category_keywords)
+            # Special case: If ALL items are players, then players ARE voices (simple structure)
+            all_have_player_keyword = all(
+                "ПЛЕЄР" in item["name"].upper() or "PLAYER" in item["name"].upper()
+                for item in all_items
+            )
 
-                # Skip players, max depth items, and categories
-                if is_player or (is_max_depth and max_depth > 2) or is_category:
-                    continue
+            if all_have_player_keyword:
+                # Simple structure: all items are players = voices for series
+                for item in all_items:
+                    voices.append(Voice(id=item["id"], name=item["name"]))
+            else:
+                # Complex structure: find voices (items without "ПЛЕЄР")
+                for item in all_items:
+                    is_player = (
+                        "ПЛЕЄР" in item["name"].upper()
+                        or "PLAYER" in item["name"].upper()
+                    )
+                    is_max_depth = item["parts_count"] == max_depth
+                    is_category = any(
+                        keyword in item["name"].upper() for keyword in category_keywords
+                    )
 
-                voices.append(Voice(id=item['id'], name=item['name']))
+                    # Skip players, max depth items, and categories
+                    if is_player or (is_max_depth and max_depth > 2) or is_category:
+                        continue
+
+                    voices.append(Voice(id=item["id"], name=item["name"]))
 
         anime.voices = voices
         anime.is_movie = is_movie
@@ -370,7 +420,7 @@ class AnitubeScraper:
 
         # Extract episodes for selected voice and player
         episodes = []
-        episode_items = soup.select('.playlists-videos .playlists-items li')
+        episode_items = soup.select(".playlists-videos .playlists-items li")
 
         if is_movie:
             # For movies, we need to find episodes under the selected voice
@@ -378,11 +428,17 @@ class AnitubeScraper:
             # 1. Simple: voice_id IS the player (0_0 -> episode 0_0)
             # 2. Complex: voice_id has players under it (0_0 -> players 0_0_0, 0_0_1)
 
-            if players_at_depth_2:
+            # Check if voice IS the player (simple structure)
+            all_have_player_keyword = all(
+                "ПЛЕЄР" in item["name"].upper() or "PLAYER" in item["name"].upper()
+                for item in all_items
+            )
+
+            if all_have_player_keyword:
                 # Simple case: voice IS player
                 for item in episode_items:
-                    data_id = item.get('data-id', '')
-                    data_file = item.get('data-file', '')
+                    data_id = item.get("data-id", "")
+                    data_file = item.get("data-file", "")
 
                     if not data_file:
                         continue
@@ -391,17 +447,19 @@ class AnitubeScraper:
                     if voice_id and data_id != voice_id:
                         continue
 
-                    episodes.append(Episode(
-                        number=1,
-                        data_id=data_id,
-                        data_file=data_file,
-                    ))
+                    episodes.append(
+                        Episode(
+                            number=1,
+                            data_id=data_id,
+                            data_file=data_file,
+                        )
+                    )
             else:
                 # Complex case: voice has players under it
                 # Get all players for this voice
                 for item in episode_items:
-                    data_id = item.get('data-id', '')
-                    data_file = item.get('data-file', '')
+                    data_id = item.get("data-id", "")
+                    data_file = item.get("data-file", "")
 
                     if not data_file:
                         continue
@@ -415,30 +473,46 @@ class AnitubeScraper:
                     if player_id and not data_id.startswith(player_id):
                         continue
 
-                    episodes.append(Episode(
-                        number=1,
-                        data_id=data_id,
-                        data_file=data_file,
-                    ))
+                    episodes.append(
+                        Episode(
+                            number=1,
+                            data_id=data_id,
+                            data_file=data_file,
+                        )
+                    )
         else:
             # Series logic: find player for voice, then extract episodes
-            # If player_id not specified, find first available player
-            if not player_id and voice_id:
-                voice_depth = len(voice_id.split('_'))
+            # Two cases:
+            # 1. Simple: voice_id matches episode data_id (voice IS the player)
+            # 2. Complex: voice has players under it (need to find player_id)
+
+            # Check if any episode has voice_id as exact match (simple case)
+            has_direct_episodes = any(
+                item.get("data-id", "") == voice_id for item in episode_items
+            )
+
+            if has_direct_episodes:
+                # Simple case: voice IS the player, episodes match voice_id directly
+                # Use voice_id as player_id
+                if not player_id:
+                    player_id = voice_id
+            elif not player_id and voice_id:
+                # Complex case: find first available player under voice
+                voice_depth = len(voice_id.split("_"))
                 player_depth = voice_depth + 1
 
                 for item in episode_items:
-                    data_id = item.get('data-id', '')
+                    data_id = item.get("data-id", "")
                     if data_id.startswith(voice_id):
-                        parts = data_id.split('_')
+                        parts = data_id.split("_")
                         if len(parts) >= player_depth:
-                            player_id = '_'.join(parts[:player_depth])
+                            player_id = "_".join(parts[:player_depth])
                             break
 
             # Extract episodes only for the selected player
             for item in episode_items:
-                data_id = item.get('data-id', '')
-                data_file = item.get('data-file', '')
+                data_id = item.get("data-id", "")
+                data_file = item.get("data-file", "")
 
                 if not data_file:
                     continue
@@ -449,17 +523,20 @@ class AnitubeScraper:
                         continue
 
                 episode_num_text = item.get_text(strip=True)
-                episode_num_match = re.search(r'(\d+)', episode_num_text)
+                episode_num_match = re.search(r"(\d+)", episode_num_text)
                 episode_num = (
                     int(episode_num_match.group(1))
-                    if episode_num_match else len(episodes) + 1
+                    if episode_num_match
+                    else len(episodes) + 1
                 )
 
-                episodes.append(Episode(
-                    number=episode_num,
-                    data_id=data_id,
-                    data_file=data_file,
-                ))
+                episodes.append(
+                    Episode(
+                        number=episode_num,
+                        data_id=data_id,
+                        data_file=data_file,
+                    )
+                )
 
         anime.episodes = episodes
         anime.total_episodes = len(episodes)

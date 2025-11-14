@@ -3,7 +3,6 @@
 import sys
 import argparse
 import logging
-from pathlib import Path
 
 from aniloader.scraper import AnitubeScraper
 from aniloader.extractor import M3U8Extractor
@@ -16,8 +15,8 @@ def setup_logging(verbose: bool = False) -> None:
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%H:%M:%S'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%H:%M:%S",
     )
 
 
@@ -97,7 +96,7 @@ def select_player_interactive(players: list) -> str:
 def main() -> None:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        description='Download anime episodes from anitube.in.ua',
+        description="Download anime episodes from anitube.in.ua",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -115,31 +114,31 @@ Examples:
 
   # Verbose logging
   python main.py <URL> --verbose
-        """
+        """,
     )
 
+    parser.add_argument("url", help="URL to anime page on anitube.in.ua")
     parser.add_argument(
-        'url',
-        help='URL to anime page on anitube.in.ua'
+        "--output",
+        "-o",
+        default=".",
+        help="Output directory for downloaded episodes (default: current directory)",
     )
     parser.add_argument(
-        '--output', '-o',
-        default='.',
-        help='Output directory for downloaded episodes (default: current directory)'
+        "--voice",
+        help="Voice/dub ID to use (if not specified, will prompt interactively)",
     )
     parser.add_argument(
-        '--voice',
-        help='Voice/dub ID to use (if not specified, will prompt interactively)'
+        "--title",
+        help="Override anime title (useful when auto-detection returns Ukrainian name)",
     )
     parser.add_argument(
-        '--no-aria2c',
-        action='store_true',
-        help='Disable aria2c acceleration (use default yt-dlp downloader)'
+        "--no-aria2c",
+        action="store_true",
+        help="Disable aria2c acceleration (use default yt-dlp downloader)",
     )
     parser.add_argument(
-        '--verbose', '-v',
-        action='store_true',
-        help='Enable verbose logging'
+        "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
 
     args = parser.parse_args()
@@ -157,8 +156,18 @@ Examples:
         # Step 1: Fetch anime metadata
         print(f"\nFetching anime metadata from {args.url}...")
         anime = scraper.fetch_anime_metadata(args.url)
-        print(f"Found: {anime.title_en}" +
-              (f" ({anime.year})" if anime.year else ""))
+
+        # Override title if provided
+        if args.title:
+            anime.title_en = args.title
+            print(
+                f"Using custom title: {anime.title_en}"
+                + (f" ({anime.year})" if anime.year else "")
+            )
+        else:
+            print(
+                f"Found: {anime.title_en}" + (f" ({anime.year})" if anime.year else "")
+            )
 
         # Step 2: Fetch playlist to get available voices/players
         print("\nFetching content...")
@@ -199,34 +208,33 @@ Examples:
         players = scraper.get_available_players(anime, selected_voice_id)
 
         if not players:
-            # No players found - this is a simple movie where voice IS the player
+            # No players found - voice IS the player (simple structure for both movies and series)
+            selected_player_id = None
+            print("No separate players, using selected voice as player")
+            anime = scraper.fetch_playlist(
+                anime, voice_id=selected_voice_id, player_id=None
+            )
             if anime.is_movie:
-                selected_player_id = None
-                print(f"No separate players, using selected voice as player")
-                anime = scraper.fetch_playlist(
-                    anime,
-                    voice_id=selected_voice_id,
-                    player_id=None
-                )
-                print(f"Found movie file")
+                print("Found movie file")
             else:
-                print("No players found for selected voice!")
-                sys.exit(1)
+                print(f"Found {anime.total_episodes} episodes")
         else:
             # Players found - select one (for both series and complex movies)
             selected_player_id = select_player_interactive(players)
 
             # Fetch episodes for selected voice and player
-            content_label = "movie" if anime.is_movie else f"{anime.total_episodes if anime.total_episodes else '?'} episodes"
+            content_label = (
+                "movie"
+                if anime.is_movie
+                else f"{anime.total_episodes if anime.total_episodes else '?'} episodes"
+            )
             print(f"\nFetching {content_label}...")
             anime = scraper.fetch_playlist(
-                anime,
-                voice_id=selected_voice_id,
-                player_id=selected_player_id
+                anime, voice_id=selected_voice_id, player_id=selected_player_id
             )
 
             if anime.is_movie:
-                print(f"Found movie file")
+                print("Found movie file")
             else:
                 print(f"Found {anime.total_episodes} episodes")
 
@@ -239,9 +247,7 @@ Examples:
         anime.episodes = extractor.extract_all_m3u8_urls(anime.episodes)
 
         # Count successful extractions
-        successful_extractions = sum(
-            1 for ep in anime.episodes if ep.m3u8_url
-        )
+        successful_extractions = sum(1 for ep in anime.episodes if ep.m3u8_url)
         print(
             f"Successfully extracted {successful_extractions}/"
             f"{anime.total_episodes} URLs"
@@ -252,10 +258,7 @@ Examples:
             sys.exit(1)
 
         # Step 8: Create output directory
-        output_dir = downloader.create_output_directory(
-            anime,
-            args.output
-        )
+        output_dir = downloader.create_output_directory(anime, args.output)
         print(f"\nSaving to: {output_dir}")
 
         # Step 9: Download all episodes
@@ -271,10 +274,9 @@ Examples:
         print(f"Failed:              {stats['failed']}")
         print("=" * 50)
 
-        if stats['failed'] > 0:
+        if stats["failed"] > 0:
             print(
-                "\nSome episodes failed to download. "
-                "Check the logs above for details."
+                "\nSome episodes failed to download. Check the logs above for details."
             )
             sys.exit(1)
         else:
