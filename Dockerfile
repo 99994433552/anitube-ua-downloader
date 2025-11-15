@@ -16,7 +16,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies globally using uv pip
-RUN uv pip install --system -r pyproject.toml
+RUN uv pip install --system .
 
 # Copy application code
 COPY main.py ./
