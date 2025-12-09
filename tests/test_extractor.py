@@ -8,8 +8,6 @@ import responses
 from aniloader.extraction.m3u8_extractor_refactored import M3U8Extractor
 from aniloader.extraction.tortuga_extractor import TortugaCoreExtractor
 from aniloader.extraction.playerjs_extractor import PlayerJSExtractor
-from aniloader.extraction.extractor_chain import ExtractorChain
-from aniloader.extraction.quality_selector import QualitySelector
 from aniloader.models import Episode
 
 
@@ -136,83 +134,77 @@ class TestPlayerJSExtractor:
         assert result == "https://cdn.example.com/video.m3u8"
 
 
-class TestQualitySelector:
-    """Test QualitySelector class."""
+class TestQualitySelection:
+    """Test quality selection in M3U8Extractor."""
 
     @pytest.fixture
-    def selector(self):
-        """Create selector instance."""
-        return QualitySelector()
+    def extractor(self):
+        """Create extractor instance."""
+        return M3U8Extractor()
 
-    def test_select_best_quality_multi(self, selector):
+    def test_select_best_quality_multi(self, extractor):
         """Test selecting best quality from multiple options."""
         file_value = "[360p]https://example.com/360p.m3u8,[720p]https://example.com/720p.m3u8,[1080p]https://example.com/1080p.m3u8"
-        result = selector.select_best_quality(file_value)
+        result = extractor._select_best_quality(file_value)
         assert result == "https://example.com/1080p.m3u8"
 
-    def test_select_best_quality_single(self, selector):
+    def test_select_best_quality_single(self, extractor):
         """Test that single quality URL is returned as-is."""
         file_value = "https://example.com/video.m3u8"
-        result = selector.select_best_quality(file_value)
+        result = extractor._select_best_quality(file_value)
         assert result == file_value
 
-    def test_select_best_quality_removes_trailing_slash(self, selector):
+    def test_select_best_quality_removes_trailing_slash(self, extractor):
         """Test that trailing slashes are removed."""
         file_value = "[720p]https://example.com/720p.m3u8/,[1080p]https://example.com/1080p.m3u8/"
-        result = selector.select_best_quality(file_value)
+        result = extractor._select_best_quality(file_value)
         assert result == "https://example.com/1080p.m3u8"
         assert not result.endswith("/")
 
-    def test_select_best_quality_empty(self, selector):
+    def test_select_best_quality_empty(self, extractor):
         """Test that empty string returns empty string."""
-        assert selector.select_best_quality("") == ""
+        assert extractor._select_best_quality("") == ""
 
-    def test_select_best_quality_no_brackets(self, selector):
+    def test_select_best_quality_no_brackets(self, extractor):
         """Test URL without quality markers is returned as-is."""
         file_value = "https://example.com/video.m3u8"
-        result = selector.select_best_quality(file_value)
+        result = extractor._select_best_quality(file_value)
         assert result == file_value
 
 
-class TestExtractorChain:
-    """Test ExtractorChain class."""
+class TestExtractorChainInM3U8:
+    """Test extractor chain functionality in M3U8Extractor."""
 
     @pytest.fixture
-    def chain(self):
-        """Create extractor chain with both extractors."""
-        return ExtractorChain(
-            [
+    def extractor(self):
+        """Create M3U8Extractor with both extractors."""
+        return M3U8Extractor(
+            extractors=[
                 TortugaCoreExtractor(),
                 PlayerJSExtractor(),
             ]
         )
 
-    def test_extract_tortuga_first(self, chain, mock_tortuga_html):
+    def test_extract_tortuga_first(self, extractor, mock_tortuga_html):
         """Test that TortugaCore is tried first."""
         test_url = "https://example.com/video.m3u8"
         html = mock_tortuga_html(test_url)
 
-        result = chain.extract(html)
+        result = extractor._extract_from_html(html)
         assert result == test_url
 
-    def test_extract_playerjs_fallback(self, chain, mock_playerjs_html):
+    def test_extract_playerjs_fallback(self, extractor, mock_playerjs_html):
         """Test that PlayerJS is used as fallback."""
         html = mock_playerjs_html("https://example.com/video.m3u8")
 
-        result = chain.extract(html)
+        result = extractor._extract_from_html(html)
         assert result == "https://example.com/video.m3u8"
 
-    def test_extract_none_no_match(self, chain):
+    def test_extract_none_no_match(self, extractor):
         """Test that None is returned when no extractor matches."""
         html = "<html><body>No player here</body></html>"
-        result = chain.extract(html)
+        result = extractor._extract_from_html(html)
         assert result is None
-
-    def test_add_extractor(self, chain):
-        """Test adding extractor to chain."""
-        initial_count = len(chain.extractors)
-        chain.add_extractor(PlayerJSExtractor())
-        assert len(chain.extractors) == initial_count + 1
 
 
 class TestM3U8Extractor:

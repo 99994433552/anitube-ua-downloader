@@ -3,7 +3,6 @@
 import pytest
 
 from aniloader.downloading.filesystem import sanitize_filename, FileSystemManager
-from aniloader.downloading.filename_generator import FilenameGenerator
 from aniloader.downloading.video_downloader_refactored import VideoDownloader
 from aniloader.models import Anime, Episode
 
@@ -72,42 +71,42 @@ class TestSanitizeFilename:
         assert sanitize_filename("Series Name S01E01") == "Series Name S01E01"
 
 
-class TestFilenameGenerator:
-    """Test FilenameGenerator class."""
+class TestFilenameGeneration:
+    """Test filename generation in FileSystemManager."""
 
     @pytest.fixture
-    def generator(self):
-        """Create a FilenameGenerator instance."""
-        return FilenameGenerator()
+    def fs_manager(self):
+        """Create a FileSystemManager instance."""
+        return FileSystemManager()
 
-    def test_generate_episode_filename_series(self, generator, anime_series):
+    def test_generate_episode_filename_series(self, fs_manager, anime_series):
         """Test filename generation for series episodes."""
         episode = Episode(number=1, data_id="0_0", data_file="test.m3u8")
-        filename = generator.generate_episode_filename(anime_series, episode)
+        filename = fs_manager.generate_episode_filename(anime_series, episode)
         assert filename == "Test Anime S01E01.mp4"
 
     def test_generate_episode_filename_series_double_digit(
-        self, generator, anime_series
+        self, fs_manager, anime_series
     ):
         """Test filename generation for series with double-digit episode."""
         episode = Episode(number=12, data_id="0_0", data_file="test.m3u8")
-        filename = generator.generate_episode_filename(anime_series, episode)
+        filename = fs_manager.generate_episode_filename(anime_series, episode)
         assert filename == "Test Anime S01E12.mp4"
 
-    def test_generate_episode_filename_series_season_2(self, generator, anime_series):
+    def test_generate_episode_filename_series_season_2(self, fs_manager, anime_series):
         """Test filename generation for series season 2."""
         anime_series.season = 2
         episode = Episode(number=5, data_id="0_0", data_file="test.m3u8")
-        filename = generator.generate_episode_filename(anime_series, episode)
+        filename = fs_manager.generate_episode_filename(anime_series, episode)
         assert filename == "Test Anime S02E05.mp4"
 
-    def test_generate_episode_filename_movie_with_year(self, generator, anime_movie):
+    def test_generate_episode_filename_movie_with_year(self, fs_manager, anime_movie):
         """Test filename generation for movie with year."""
         episode = Episode(number=1, data_id="0_0", data_file="test.m3u8")
-        filename = generator.generate_episode_filename(anime_movie, episode)
+        filename = fs_manager.generate_episode_filename(anime_movie, episode)
         assert filename == "Test Movie (2024).mp4"
 
-    def test_generate_episode_filename_movie_without_year(self, generator):
+    def test_generate_episode_filename_movie_without_year(self, fs_manager):
         """Test filename generation for movie without year."""
         anime = Anime(
             news_id="5678",
@@ -117,14 +116,14 @@ class TestFilenameGenerator:
             is_movie=True,
         )
         episode = Episode(number=1, data_id="0_0", data_file="test.m3u8")
-        filename = generator.generate_episode_filename(anime, episode)
+        filename = fs_manager.generate_episode_filename(anime, episode)
         assert filename == "Test Movie.mp4"
 
-    def test_generate_filename_with_invalid_characters(self, generator, anime_series):
+    def test_generate_filename_with_invalid_characters(self, fs_manager, anime_series):
         """Test that invalid characters are sanitized in filenames."""
         anime_series.title_en = "Avatar: The Last Airbender"
         episode = Episode(number=1, data_id="0_0", data_file="test.m3u8")
-        filename = generator.generate_episode_filename(anime_series, episode)
+        filename = fs_manager.generate_episode_filename(anime_series, episode)
         assert filename == "Avatar - The Last Airbender S01E01.mp4"
         assert ":" not in filename
 
@@ -193,12 +192,6 @@ class TestVideoDownloader:
         """Create a VideoDownloader instance."""
         return VideoDownloader()
 
-    def test_generate_episode_filename_delegates(self, downloader, anime_series):
-        """Test that generate_episode_filename delegates to generator."""
-        episode = Episode(number=1, data_id="0_0", data_file="test.m3u8")
-        filename = downloader.generate_episode_filename(anime_series, episode)
-        assert filename == "Test Anime S01E01.mp4"
-
     def test_create_output_directory_delegates(
         self, downloader, anime_series, tmp_path
     ):
@@ -223,7 +216,9 @@ class TestVideoDownloader:
         )
         # Create the file
         output_dir = downloader.create_output_directory(anime_series, str(tmp_path))
-        filename = downloader.generate_episode_filename(anime_series, episode)
+        filename = downloader.fs_manager.generate_episode_filename(
+            anime_series, episode
+        )
         (output_dir / filename).write_text("existing")
 
         success, message = downloader.download_episode(

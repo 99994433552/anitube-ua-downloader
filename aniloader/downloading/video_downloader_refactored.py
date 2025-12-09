@@ -1,4 +1,4 @@
-"""Refactored video downloader using SOLID principles."""
+"""Video downloader module."""
 
 import logging
 from pathlib import Path
@@ -8,32 +8,28 @@ from ..models import Anime, Episode
 from .strategies.base_strategy import BaseDownloadStrategy
 from .strategies.ytdlp_strategy import YtDlpStrategy
 from .filesystem import FileSystemManager
-from .filename_generator import FilenameGenerator
 
 logger = logging.getLogger(__name__)
 
 
 class VideoDownloader:
-    """Refactored video downloader with dependency injection."""
+    """Video downloader with configurable strategy."""
 
     def __init__(
         self,
         download_strategy: Optional[BaseDownloadStrategy] = None,
         fs_manager: Optional[FileSystemManager] = None,
-        filename_generator: Optional[FilenameGenerator] = None,
     ):
-        """Initialize downloader with dependencies.
+        """Initialize downloader.
 
         Args:
             download_strategy: Strategy for downloading files
             fs_manager: Filesystem manager
-            filename_generator: Filename generator
         """
         self.download_strategy = download_strategy or YtDlpStrategy(
             use_aria2c_downloader=True
         )
         self.fs_manager = fs_manager or FileSystemManager()
-        self.filename_generator = filename_generator or FilenameGenerator()
 
     def download_episode(
         self,
@@ -57,7 +53,7 @@ class VideoDownloader:
             return False, msg
 
         # Generate filename
-        filename = self.filename_generator.generate_episode_filename(anime, episode)
+        filename = self.fs_manager.generate_episode_filename(anime, episode)
         output_path = output_dir / filename
 
         # Check if already exists
@@ -97,15 +93,3 @@ class VideoDownloader:
             Created directory path
         """
         return self.fs_manager.create_output_directory(anime, base_dir)
-
-    def generate_episode_filename(self, anime: Anime, episode: Episode) -> str:
-        """Generate filename for episode.
-
-        Args:
-            anime: Anime object
-            episode: Episode object
-
-        Returns:
-            Generated filename
-        """
-        return self.filename_generator.generate_episode_filename(anime, episode)
