@@ -1,15 +1,11 @@
 """Factory for creating application components."""
 
-import logging
-
 from ..scraper_refactored import AnitubeScraper
 from ..extraction.m3u8_extractor_refactored import M3U8Extractor
 from ..downloading.video_downloader_refactored import VideoDownloader
 from ..downloading.strategies.ytdlp_strategy import YtDlpStrategy
 from ..cli.selector import InteractiveSelector
 from ..cli.orchestrator import DownloadOrchestrator
-
-logger = logging.getLogger(__name__)
 
 
 def create_orchestrator(use_aria2c: bool = True) -> DownloadOrchestrator:
@@ -34,10 +30,3 @@ def create_orchestrator(use_aria2c: bool = True) -> DownloadOrchestrator:
         downloader=downloader,
         selector=selector,
     )
-
-
-# Keep ComponentFactory for backwards compatibility
-class ComponentFactory:
-    """Factory for creating application components (deprecated, use create_orchestrator)."""
-
-    create_orchestrator = staticmethod(create_orchestrator)

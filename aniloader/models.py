@@ -24,8 +24,7 @@ class Episode(BaseModel):
     data_id: str = Field(..., description="Episode ID from data-id attribute")
     data_file: str = Field(..., description="URL to iframe with video player")
     m3u8_url: str | None = Field(
-        default=None,
-        description="Extracted m3u8 URL for downloading"
+        default=None, description="Extracted m3u8 URL for downloading"
     )
 
 
@@ -37,36 +36,14 @@ class Anime(BaseModel):
     year: int | None = Field(default=None, description="Release year")
     season: int = Field(default=1, description="Season number (series only)")
     is_movie: bool = Field(
-        default=False,
-        description="Whether this is a movie or series"
+        default=False, description="Whether this is a movie or series"
     )
     total_episodes: int | None = Field(
-        default=None,
-        description="Total number of episodes"
+        default=None, description="Total number of episodes"
     )
     voices: list[Voice] = Field(
-        default_factory=list,
-        description="Available voice options"
+        default_factory=list, description="Available voice options"
     )
     episodes: list[Episode] = Field(
-        default_factory=list,
-        description="List of episodes"
-    )
-
-
-class DownloadConfig(BaseModel):
-    """Configuration for downloading episodes."""
-
-    anime_url: str = Field(..., description="URL to anime page")
-    output_dir: str = Field(
-        default=".",
-        description="Directory to save downloaded episodes"
-    )
-    voice_id: str | None = Field(
-        default=None,
-        description="Selected voice ID"
-    )
-    use_aria2c: bool = Field(
-        default=True,
-        description="Use aria2c for faster downloads"
+        default_factory=list, description="List of episodes"
     )

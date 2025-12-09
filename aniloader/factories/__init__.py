@@ -1,7 +1,7 @@
 """Factory components."""
 
-from .component_factory import ComponentFactory
+from .component_factory import create_orchestrator
 
 __all__ = [
-    "ComponentFactory",
+    "create_orchestrator",
 ]

@@ -4,7 +4,7 @@ import sys
 import argparse
 import logging
 
-from aniloader.factories.component_factory import ComponentFactory
+from aniloader.factories.component_factory import create_orchestrator
 from aniloader.exceptions import (
     AniloaderError,
     NoVoicesError,
@@ -86,10 +86,8 @@ def main() -> int:
     setup_logging(args.verbose)
 
     try:
-        # Create orchestrator using factory
-        orchestrator = ComponentFactory.create_orchestrator(
-            use_aria2c=not args.no_aria2c
-        )
+        # Create orchestrator
+        orchestrator = create_orchestrator(use_aria2c=not args.no_aria2c)
 
         # Run download process
         stats = orchestrator.run(
