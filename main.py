@@ -5,6 +5,12 @@ import argparse
 import logging
 
 from aniloader.factories.component_factory import ComponentFactory
+from aniloader.exceptions import (
+    AniloaderError,
+    NoVoicesError,
+    NoPlayersError,
+    UserCancelledError,
+)
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -101,6 +107,18 @@ def main() -> int:
     except KeyboardInterrupt:
         print("\n\nCancelled by user")
         return 130
+
+    except UserCancelledError:
+        print("\n\nCancelled by user")
+        return 0
+
+    except (NoVoicesError, NoPlayersError) as e:
+        print(f"\nError: {e}")
+        return 1
+
+    except AniloaderError as e:
+        logging.error(f"Aniloader error: {e}", exc_info=args.verbose)
+        return 1
 
     except Exception as e:
         logging.error(f"Unexpected error: {e}", exc_info=args.verbose)

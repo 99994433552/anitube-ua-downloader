@@ -46,7 +46,7 @@ class Aria2cStrategy(BaseDownloadStrategy):
             ]
 
             logger.info(f"Downloading with aria2c: {url}")
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
             if result.returncode == 0:
                 logger.info(f"Downloaded successfully: {output_path}")
@@ -54,10 +54,6 @@ class Aria2cStrategy(BaseDownloadStrategy):
             else:
                 logger.error(f"aria2c failed: {result.stderr}")
                 return False
-
-        except subprocess.CalledProcessError as e:
-            logger.error(f"aria2c download failed: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"Unexpected error during aria2c download: {e}")
+        except OSError as e:
+            logger.error(f"Failed to run aria2c: {e}")
             return False

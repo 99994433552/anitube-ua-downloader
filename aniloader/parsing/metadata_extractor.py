@@ -64,7 +64,7 @@ class MetadataExtractor:
         # Format: "Українська назва / English Name https://..."
         twitter_link = soup.find("a", href=re.compile(r"twitter\.com/intent/tweet"))
         if twitter_link:
-            href = twitter_link.get("href", "")
+            href = str(twitter_link.get("href", ""))
             # Extract text parameter from URL
             match = re.search(r"text=([^&]+)", href)
             if match:
@@ -87,13 +87,15 @@ class MetadataExtractor:
         )
 
         if title_tag:
-            if hasattr(title_tag, "get"):
-                title_text = title_tag.get("content", "")
+            # Meta tags have content attribute, h1 tags need get_text
+            if title_tag.name == "meta":
+                content = title_tag.get("content")
+                title_text = str(content) if content else ""
             else:
                 title_text = title_tag.get_text(strip=True)
 
             if title_text:
-                return title_text
+                return str(title_text)
 
         return "Unknown"
 
@@ -136,11 +138,13 @@ class MetadataExtractor:
         # Look for year in various possible locations
         # 1. In meta tags
         year_meta = soup.find("meta", property="video:release_date")
-        if year_meta and year_meta.get("content"):
-            year_str = year_meta.get("content", "")
-            match = re.search(r"(\d{4})", year_str)
-            if match:
-                return int(match.group(1))
+        if year_meta and hasattr(year_meta, "get"):
+            content = year_meta.get("content")
+            if content:
+                year_str = str(content)
+                match = re.search(r"(\d{4})", year_str)
+                if match:
+                    return int(match.group(1))
 
         # 2. In page content (look for 4-digit year)
         content = soup.get_text()

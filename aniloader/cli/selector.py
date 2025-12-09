@@ -1,9 +1,9 @@
 """Interactive selection UI for voices and players."""
 
-import sys
 import logging
 
 from ..models import Voice, Player
+from ..exceptions import NoVoicesError, NoPlayersError, UserCancelledError
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +21,11 @@ class InteractiveSelector:
             Selected Voice object
 
         Raises:
-            SystemExit: If no voices available or user cancels
+            NoVoicesError: If no voices available
+            UserCancelledError: If user cancels
         """
         if not voices:
-            print("No voice options found!")
-            sys.exit(1)
+            raise NoVoicesError("No voice options found")
 
         if len(voices) == 1:
             print(f"Using only available voice: {voices[0].name}")
@@ -50,8 +50,7 @@ class InteractiveSelector:
             except ValueError:
                 print("Please enter a valid number")
             except KeyboardInterrupt:
-                print("\n\nCancelled by user")
-                sys.exit(0)
+                raise UserCancelledError("Cancelled by user")
 
     def select_player(self, players: list[Player]) -> Player:
         """Prompt user to select a player option.
@@ -63,11 +62,11 @@ class InteractiveSelector:
             Selected Player object
 
         Raises:
-            SystemExit: If no players available or user cancels
+            NoPlayersError: If no players available
+            UserCancelledError: If user cancels
         """
         if not players:
-            print("No players found!")
-            sys.exit(1)
+            raise NoPlayersError("No players found")
 
         if len(players) == 1:
             print(f"Using only available player: {players[0].name}")
@@ -99,5 +98,4 @@ class InteractiveSelector:
             except ValueError:
                 print("Please enter a valid number")
             except KeyboardInterrupt:
-                print("\n\nCancelled by user")
-                sys.exit(0)
+                raise UserCancelledError("Cancelled by user")

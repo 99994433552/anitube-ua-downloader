@@ -48,6 +48,7 @@ class TortugaCoreExtractor(BaseVideoExtractor):
 
             logger.info(f"Extracted URL from TortugaCore: {m3u8_url}")
             return m3u8_url
-        except Exception as e:
-            logger.error(f"Failed to decode TortugaCore file: {e}")
+        except (ValueError, UnicodeDecodeError) as e:
+            # ValueError covers base64.binascii.Error (it's a subclass)
+            logger.warning(f"Failed to decode TortugaCore file: {e}")
             return None

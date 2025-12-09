@@ -21,3 +21,11 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+
+[tool.coverage.run]
+omit = ["aniloader/protocols.py"]
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.0.0",
+]

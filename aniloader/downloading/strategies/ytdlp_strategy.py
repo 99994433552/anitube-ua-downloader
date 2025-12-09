@@ -65,7 +65,7 @@ class YtDlpStrategy(BaseDownloadStrategy):
             cmd.extend(["-o", str(output_path), url])
 
             logger.info(f"Downloading with yt-dlp: {url}")
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
             if result.returncode == 0:
                 logger.info(f"Downloaded successfully: {output_path}")
@@ -73,10 +73,6 @@ class YtDlpStrategy(BaseDownloadStrategy):
             else:
                 logger.error(f"yt-dlp failed: {result.stderr}")
                 return False
-
-        except subprocess.CalledProcessError as e:
-            logger.error(f"yt-dlp download failed: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"Unexpected error during yt-dlp download: {e}")
+        except OSError as e:
+            logger.error(f"Failed to run yt-dlp: {e}")
             return False

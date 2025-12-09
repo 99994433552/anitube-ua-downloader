@@ -46,17 +46,22 @@ class ContentTypeDetector:
         )
 
         # Method 3: Count unique episodes (by data-file, not data-id)
-        # Multiple unique video files = series
+        # If there are more unique video files than voice/player items,
+        # it means multiple episodes exist (series). For movies, each voice/player
+        # typically has exactly one video file, so unique_files_count <= total_items_count.
         has_multiple_episodes = unique_files_count > total_items_count
 
         # Decision logic:
         # - If has "серія" labels → definitely series
-        # - If has "ФІЛЬМ" labels and only one episode → movie
         # - If multiple unique episodes → series
-        # - Otherwise → movie (default for single episode)
-        is_movie = (
-            has_movie_label and not has_series_label and not has_multiple_episodes
-        )
+        # - Otherwise → movie (default for single episode or explicit movie label)
+        if has_series_label:
+            is_movie = False
+        elif has_multiple_episodes:
+            is_movie = False
+        else:
+            # Single episode without series labels = movie (or explicit movie label)
+            is_movie = True
 
         logger.debug(
             f"Content type detection: has_movie_label={has_movie_label}, "

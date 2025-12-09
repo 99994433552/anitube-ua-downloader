@@ -41,12 +41,24 @@ class PlayerJSExtractor(BaseVideoExtractor):
 
         json_str = match.group(1)
 
-        # PlayerJS often uses single quotes instead of double quotes
-        # Replace single quotes with double quotes for valid JSON
-        json_str_cleaned = json_str.replace("'", '"')
+        # First try regex extraction - more reliable than JSON parsing
+        # because PlayerJS configs often have non-standard JSON (single quotes,
+        # apostrophes in values like "It's working")
+        file_match = re.search(r'file["\']?\s*:\s*["\']([^"\']+)["\']', json_str)
+        if file_match:
+            m3u8_url = file_match.group(1)
+            m3u8_url = self.normalize_url(m3u8_url)
+            logger.info(f"Extracted URL from PlayerJS via regex: {m3u8_url}")
+            return m3u8_url
 
+        # Fallback: try JSON parsing with careful quote replacement
+        # Only replace quotes that are likely JSON delimiters (around keys)
         try:
-            # Try parsing as JSON
+            # Replace single quotes around keys: 'file': -> "file":
+            json_str_cleaned = re.sub(r"'(\w+)'(\s*:)", r'"\1"\2', json_str)
+            # Replace single quotes around simple values (no apostrophes)
+            json_str_cleaned = re.sub(r":\s*'([^']*)'", r': "\1"', json_str_cleaned)
+
             config = json.loads(json_str_cleaned)
             file_value = config.get("file", "")
 
@@ -54,21 +66,11 @@ class PlayerJSExtractor(BaseVideoExtractor):
                 logger.warning("PlayerJS config has no 'file' field")
                 return None
 
-            # Normalize URL
             m3u8_url = self.normalize_url(file_value)
-
-            logger.info(f"Extracted URL from PlayerJS: {m3u8_url}")
+            logger.info(f"Extracted URL from PlayerJS via JSON: {m3u8_url}")
             return m3u8_url
 
         except json.JSONDecodeError as e:
-            # Fallback: use regex to extract file value directly
-            logger.debug(f"JSON parsing failed ({e}), using regex fallback")
-            file_match = re.search(r'file["\']?\s*:\s*["\']([^"\']+)["\']', json_str)
-            if file_match:
-                m3u8_url = file_match.group(1)
-                m3u8_url = self.normalize_url(m3u8_url)
-                logger.info(f"Extracted URL via regex: {m3u8_url}")
-                return m3u8_url
-
-            logger.error("Failed to extract file from PlayerJS config")
+            logger.debug(f"JSON parsing also failed: {e}")
+            logger.warning("Failed to extract file from PlayerJS config")
             return None
